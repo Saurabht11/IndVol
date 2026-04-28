@@ -388,7 +388,7 @@ function drawLineChart(canvas, rows, xAccessor, ySeries, xLabel, yLabel) {
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
-  const pad = { left: 58, right: 18, top: 18, bottom: 44 };
+  const pad = { left: 72, right: 18, top: 18, bottom: 44 };
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#fbfcfd";
   ctx.fillRect(0, 0, width, height);
@@ -405,6 +405,7 @@ function drawLineChart(canvas, rows, xAccessor, ySeries, xLabel, yLabel) {
   const plotH = height - pad.top - pad.bottom;
   const xScale = (x) => pad.left + ((x - minX) / (maxX - minX || 1)) * plotW;
   const yScale = (y) => pad.top + plotH - ((y - minY) / (maxY - minY || 1)) * plotH;
+  drawPercentTicks(ctx, width, height, pad, minY, maxY);
 
   ySeries.forEach((series) => {
     ctx.strokeStyle = series.color;
@@ -420,6 +421,29 @@ function drawLineChart(canvas, rows, xAccessor, ySeries, xLabel, yLabel) {
     });
     ctx.stroke();
   });
+}
+
+function drawPercentTicks(ctx, width, height, pad, minY, maxY) {
+  const plotH = height - pad.top - pad.bottom;
+  const tickCount = 4;
+  ctx.save();
+  ctx.font = "18px system-ui";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let idx = 0; idx <= tickCount; idx += 1) {
+    const ratio = idx / tickCount;
+    const value = maxY - (maxY - minY) * ratio;
+    const y = pad.top + plotH * ratio;
+    ctx.strokeStyle = idx === tickCount ? "#b8c4cb" : "rgba(184, 196, 203, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(width - pad.right, y);
+    ctx.stroke();
+    ctx.fillStyle = "#5a6670";
+    ctx.fillText(`${value.toFixed(1)}%`, pad.left - 8, y);
+  }
+  ctx.restore();
 }
 
 function drawAxes(ctx, width, height, pad, xLabel, yLabel) {
@@ -498,11 +522,11 @@ function renderHistory() {
       { accessor: (row) => row.term_slope * 100, color: "#b33a2e", width: 2 },
     ],
     "Trading Dates",
-    "Vol %",
+    "IV / RV %",
   );
   const ctx = canvas.getContext("2d");
   if (activeIdx >= 0 && rows.length > 1) {
-    const x = 58 + (activeIdx / (rows.length - 1)) * (canvas.width - 76);
+    const x = 72 + (activeIdx / (rows.length - 1)) * (canvas.width - 90);
     ctx.strokeStyle = "#172026";
     ctx.lineWidth = 2;
     ctx.beginPath();
