@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+data/market.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/
+!public/data/
+!public/data/**
+data/raw/yahoo/*.json
+data/raw/nse_fo/*.zip

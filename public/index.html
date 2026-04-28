@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indian Volatility Surface</title>
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="apple-mobile-web-app-title" content="IndVol" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/indvol-icon-180.png" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>IndVol</h1>
+        <p>Historical NSE F&O surface, skew, term structure, and volatility regime tracking</p>
+      </div>
+      <div class="status" id="status">Loading</div>
+    </header>
+
+    <main>
+      <section class="view-tabs" aria-label="Surface view">
+        <button class="active" id="tabRaw" type="button">Raw Surface</button>
+        <button id="tabTrader" type="button">Trader View</button>
+      </section>
+
+      <section class="controls" aria-label="Surface controls">
+        <label>
+          Symbol
+          <select id="symbol">
+            <option value="NIFTY">NIFTY</option>
+            <option value="BANKNIFTY">BANKNIFTY</option>
+          </select>
+        </label>
+
+        <label>
+          Trade date
+          <select id="date"></select>
+        </label>
+
+        <label>
+          Option side
+          <select id="optionType">
+            <option value="ALL">Calls + Puts</option>
+            <option value="CE">Calls</option>
+            <option value="PE">Puts</option>
+          </select>
+        </label>
+
+        <label>
+          IV cap
+          <input id="ivCap" type="range" min="25" max="250" step="5" value="120" />
+          <span id="ivCapLabel">120%</span>
+        </label>
+
+        <label>
+          Moneyness
+          <input id="moneyBand" type="range" min="5" max="40" step="1" value="28" />
+          <span id="moneyBandLabel">±28%</span>
+        </label>
+
+        <button id="refresh" type="button">Refresh</button>
+      </section>
+
+      <section class="trader-controls hidden" id="traderControls" aria-label="Trader refinement controls">
+        <label>
+          Min DTE
+          <input id="minDte" type="range" min="1" max="30" step="1" value="5" />
+          <span id="minDteLabel">5 days</span>
+        </label>
+        <label>
+          Min volume
+          <input id="minVolume" type="range" min="0" max="2000" step="50" value="100" />
+          <span id="minVolumeLabel">100</span>
+        </label>
+        <label>
+          Min OI
+          <input id="minOi" type="range" min="0" max="200000" step="5000" value="25000" />
+          <span id="minOiLabel">25,000</span>
+        </label>
+        <label>
+          IV band
+          <input id="ivBand" type="range" min="10" max="80" step="5" value="45" />
+          <span id="ivBandLabel">10-45%</span>
+        </label>
+        <label>
+          Smoothing
+          <input id="smoothPasses" type="range" min="0" max="4" step="1" value="2" />
+          <span id="smoothPassesLabel">2 passes</span>
+        </label>
+      </section>
+
+      <section class="timeline" aria-label="Historical surface navigation">
+        <button id="prevDate" type="button" title="Previous trading date">‹</button>
+        <button id="play" type="button">Play</button>
+        <button id="nextDate" type="button" title="Next trading date">›</button>
+        <input id="dateSlider" type="range" min="0" max="0" value="0" />
+        <div class="timeline-readout">
+          <strong id="dateReadout">-</strong>
+          <span id="coverageReadout">-</span>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Surface metrics">
+        <div class="metric">
+          <span>Points</span>
+          <strong id="pointCount">-</strong>
+        </div>
+        <div class="metric">
+          <span>Spot</span>
+          <strong id="spot">-</strong>
+        </div>
+        <div class="metric">
+          <span>ATM IV</span>
+          <strong id="atmIv">-</strong>
+        </div>
+        <div class="metric">
+          <span>Term slope</span>
+          <strong id="termSlope">-</strong>
+        </div>
+        <div class="metric">
+          <span>IV - RV</span>
+          <strong id="ivRvSpread">-</strong>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="surface-panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="surfaceTitle">Surface</h2>
+              <p class="panel-subtitle" id="surfaceSubtitle">Raw contract-implied volatility points</p>
+            </div>
+            <div class="segmented" role="tablist" aria-label="Chart mode">
+              <button class="active" id="mode3d" type="button">3D</button>
+              <button id="modeHeatmap" type="button">Heatmap</button>
+            </div>
+          </div>
+          <div id="surfaceChart" class="chart large"></div>
+          <canvas id="heatmapCanvas" class="chart large hidden" width="1200" height="620"></canvas>
+        </div>
+
+        <aside class="side">
+          <div class="panel regime-panel">
+            <h2>Regime</h2>
+            <div class="regime-gauge">
+              <div id="regimeNeedle"></div>
+            </div>
+            <div class="regime-labels">
+              <span>Low</span>
+              <strong id="regimeLabel">-</strong>
+              <span>High</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>Smile / Skew</h2>
+            <label>
+              Expiry
+              <select id="expiry"></select>
+            </label>
+            <canvas id="smileCanvas" class="chart small" width="620" height="320"></canvas>
+          </div>
+
+          <div class="panel">
+            <h2>Term Structure</h2>
+            <canvas id="termCanvas" class="chart small" width="620" height="320"></canvas>
+          </div>
+        </aside>
+      </section>
+
+      <section class="history-section">
+        <div class="panel-head">
+          <h2>Historical Volatility Timeline</h2>
+          <span id="historyMeta"></span>
+        </div>
+        <canvas id="historyCanvas" class="chart history-chart" width="1500" height="360"></canvas>
+      </section>
+
+      <section class="table-section">
+        <div class="panel-head">
+          <div>
+            <h2>Surface Grid</h2>
+            <p class="panel-subtitle" id="surfaceQuality">-</p>
+          </div>
+          <span id="tableMeta"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Expiry</th>
+                <th>DTE</th>
+                <th>Strike</th>
+                <th>Side</th>
+                <th>Moneyness</th>
+                <th>Price</th>
+                <th>IV</th>
+              </tr>
+            </thead>
+            <tbody id="surfaceTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
